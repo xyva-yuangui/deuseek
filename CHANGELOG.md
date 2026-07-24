@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.0-alpha.1 (2026-07-24)
+
+### Fixed
+
+- **Reddit adapter**: parse `rdt-cli` JSON output correctly (`data.data.data.children` instead of `data.results`). Reddit searches previously returned 0 results.
+- **install.sh**: add missing `curl_cffi` to pip install (fixes `scrapling:Fetcher` showing as "not installed").
+- **install.sh**: copy `SKILL.md` to skill root directory for ZCode / non-Claude agent discovery.
+- **_wechat_sogou.py**: wrap blocking `_fetch()` in `asyncio.to_thread` to avoid blocking the event loop.
+- **_bilibili_api.py**: wrap blocking `httpx.Client` in `asyncio.to_thread` to avoid blocking the event loop.
+
 ## v1.0.0-alpha (2026-07-24)
 
 First public release of the free fork of [Daily-AC/deuseek](https://github.com/Daily-AC/deuseek) (MIT).

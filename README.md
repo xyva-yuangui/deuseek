@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://www.python.org/)
 [![Sources](https://img.shields.io/badge/sources-8%20free-success.svg)](#-supported-sources-all-free)
-[![Status](https://img.shields.io/badge/status-1.0.0--alpha-orange.svg)](#)
+[![Status](https://img.shields.io/badge/status-1.0.0--alpha.1-orange.svg)](#)
 
 🌐 **English** | [العربية](docs/README.ar.md) | [Español](docs/README.es.md) | [Português (Brasil)](docs/README.pt-BR.md) | [Français](docs/README.fr.md) | [Deutsch](docs/README.de.md) | [简体中文](docs/README.zh-CN.md) | [日本語](docs/README.ja.md) | [Русский](docs/README.ru.md) | [한국어](docs/README.ko.md)
 
@@ -64,6 +64,18 @@ $ deuseek super "Python asyncio" --sources hackernews,web --stream
 ```
 
 ## 📦 Install
+
+### Quick install (recommended)
+
+```bash
+git clone https://github.com/xyva-yuangui/deuseek.git
+cd deuseek
+bash install.sh    # venv + pip + Chromium, installs to ~/.agents/skills/deuseek/
+```
+
+This installs everything: deuseek CLI, all Python dependencies (Scrapling, curl_cffi, patchright, playwright), and stealth Chromium browsers. The install script also copies `SKILL.md` to the skill root for ZCode / agent discovery.
+
+### Alternative: uv tool install
 
 ```bash
 uv tool install git+https://github.com/xyva-yuangui/deuseek.git

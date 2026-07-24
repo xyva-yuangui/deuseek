@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deuseek"
-version = "1.0.0-alpha"
+version = "1.0.0-alpha.1"
 description = "全网通搜索: web + 多平台 (HN / YouTube / GitHub / B站 / 微信 / Reddit / RSS) — 免费多源搜索 CLI + Claude Code Skill"
 readme = "README.md"
 requires-python = ">=3.10"
