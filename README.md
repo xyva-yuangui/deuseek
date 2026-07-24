@@ -7,6 +7,7 @@
 > Powered by [Scrapling](https://github.com/D4Vinci/Scrapling) by **D4Vinci**. 🙏
 
 [![GitHub stars](https://img.shields.io/github/stars/xyva-yuangui/deuseek?style=flat)](https://github.com/xyva-yuangui/deuseek/stargazers)
+[![CI](https://github.com/xyva-yuangui/deuseek/actions/workflows/ci.yml/badge.svg)](https://github.com/xyva-yuangui/deuseek/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://www.python.org/)
 [![Sources](https://img.shields.io/badge/sources-8%20free-success.svg)](#-supported-sources-all-free)
