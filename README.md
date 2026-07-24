@@ -1,9 +1,12 @@
 # deuseek
 
-> The universal search & stealth-fetch layer for any AI coding agent. Bypass the WebSearch gate, reach the sources server-side search can't, and turn any URL into clean markdown — **100% free, no API keys required**.
+> **One CLI. All sources. Zero API keys.**
+> Give your AI agent real-time web search, stealth content fetching, and Cloudflare bypass — in 3 minutes.
+> Works with Claude Code, Zcode, Codex, Reasonix, OpenClaw, Hermes, Antigravity, and any agent that can shell out.
 
-> Fetch layer powered by [Scrapling](https://github.com/D4Vinci/Scrapling) by **D4Vinci** — used with gratitude. 🙏
+> Powered by [Scrapling](https://github.com/D4Vinci/Scrapling) by **D4Vinci**. 🙏
 
+[![GitHub stars](https://img.shields.io/github/stars/xyva-yuangui/deuseek?style=flat)](https://github.com/xyva-yuangui/deuseek/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://www.python.org/)
 [![Sources](https://img.shields.io/badge/sources-8%20free-success.svg)](#-supported-sources-all-free)
@@ -13,11 +16,81 @@
 
 ---
 
+## ✨ Features
+
+- 🌐 **8 free sources, zero API keys** — web (DuckDuckGo), HackerNews, YouTube, GitHub, Reddit, WeChat 公众号, Bilibili, RSS. No credit card, no quota.
+- 🥷 **Stealth fetch with Cloudflare bypass** — three-tier Scrapling engine: `Fetcher` (curl_cffi) → Jina SaaS → `StealthyFetcher` (patchright Chrome) + `solve_cloudflare`. The only tier that cracks Cloudflare Turnstile.
+- ⚡ **Pipeline mode ~40% faster** — `deuseek super` chains search → fetch → extract in a streaming pipeline; results don't wait for the slowest source.
+- 🧩 **Agent-agnostic, one JSON CLI** — works with Claude Code, Zcode, Codex, Reasonix, OpenClaw, Hermes, Antigravity (`agy`), and any agent that can run a shell command.
+- 🛡️ **Captcha auto-upgrade** — detects captcha pages and auto-retries with stealth Chrome, surfacing errors so the agent decides what to trust.
+- 🧠 **DomainKB** — remembers which engine works per domain (24h TTL, self-healing), so no trial-and-error on every fetch.
+- 🔧 **Adaptive, self-healing selectors** — page redesigns don't break extraction (Scrapling similarity relocation + `auto_save`).
+- 📚 **9 languages** — English (canonical) + العربية / Español / Português (Brasil) / Français / Deutsch / 简体中文 / 日本語 / Русский / 한국어.
+
+## 🎬 See it in action
+
+### Search — multi-source SERP
+```bash
+$ deuseek search "vibe coding" --json --limit 1
+```
+```json
+{
+  "query": "vibe coding",
+  "ts": "2026-07-24T12:00:00Z",
+  "results": [
+    {"source":"web","title":"What Is Vibe Coding? A Beginner's Guide","url":"https://...","content":"Vibe coding is...","score":0.72}
+  ],
+  "errors": []
+}
+```
+
+### Fetch — URL to full-text markdown (Cloudflare bypass)
+```bash
+$ deuseek fetch "https://nopecha.com/demo/cloudflare" --backend stealthy --solve-cloudflare --json
+```
+```
+backend: stealthy  |  status: 200  |  content: 12,345 chars
+```
+
+### Pipeline — search → fetch, streamed
+```bash
+$ deuseek super "Python asyncio" --sources hackernews,web --stream
+```
+```
+{"type":"search_hit","source":"hackernews","title":"Understanding Python asyncio...","url":"https://..."}
+{"type":"fetch_result","url":"https://...","backend":"fetcher","success":true,"content_len":8765}
+{"type":"done","total_urls":5,"ok":5,"elapsed_s":6.2}
+```
+
+## 📦 Install
+
+```bash
+uv tool install git+https://github.com/xyva-yuangui/deuseek.git
+deuseek init
+deuseek search "vibe coding"   # web + hackernews work zero-config
+```
+
+Unlock sources that need an upstream tool:
+
+```bash
+deuseek setup youtube     # pip install yt-dlp
+deuseek setup github      # brew install gh (macOS) / winget (Windows)
+deuseek setup reddit      # uv tool install rdt-cli && rdt login
+```
+
+Optional fetch engines (Cloudflare bypass & JS rendering):
+
+```bash
+pip install "deuseek[fetchers]"          # patchright + curl_cffi + msgspec + protego
+patchright install chromium               # stealth Chrome
+playwright install chromium               # JS rendering
+```
+
+---
+
 ## Table of contents
-- [✨ Why deuseek?](#-why-deuseek)
 - [🤖 Works with your agent CLI](#-works-with-your-agent-cli)
-- [🚀 Quick start](#-quick-start)
-- [📦 Installation](#-installation)
+- [✨ Why deuseek?](#-why-deuseek)
 - [📋 Commands](#-commands)
 - [📚 Supported sources (all free)](#-supported-sources-all-free)
 - [🥷 Fetch engine architecture](#-fetch-engine-architecture)
@@ -31,38 +104,9 @@
 
 ---
 
-## ✨ Why deuseek?
-
-Anthropic's `WebSearch` is a **server-side tool** (`web_search_20250305`) gated behind two checks:
-1. **Client gate** — only registered for first-party / specific provider configs.
-2. **Upstream gate** — the upstream API must actually *implement* the server tool. **OpenAI-compatible relay stations** (cliproxy, anyrouter, self-hosted gateways) that merely translate Claude API → OpenAI Chat Completions **don't implement it**, so `WebSearch` silently fails. Even where it works, it can't reach HN real-time threads, Reddit deep comments, WeChat 公众号 articles, or Bilibili tech videos.
-
-**deuseek fixes this client-side** — a single CLI + Skill that goes straight to Algolia / `yt-dlp` / `gh` / Bilibili API / Sogou / DuckDuckGo, so it works regardless of which API provider your agent CLI points at.
-
-### Key advantages
-
-| | deuseek | Native `WebSearch` | Paid search APIs |
-|---|:---:|:---:|:---:|
-| Works on OpenAI-compatible relay/proxy stations | ✅ | ❌ | n/a |
-| Reaches HN / Reddit / WeChat / Bilibili / RSS | ✅ | ❌ | partial |
-| Cloudflare / anti-bot bypass | ✅ | ❌ | n/a |
-| URL → full-text markdown | ✅ | WebFetch only | n/a |
-| Cost | **free** | included | 💲 paid |
-| Setup time | ~3 min | — | — |
-
-- 🚪 **Bypasses the two-layer WebSearch gate** — runs on relay/proxy stations where `WebSearch` silently fails because the upstream doesn't implement the server tool.
-- 🌐 **Reaches vertical sources server-side search can't** — HN real-time discussions, Reddit deep comment threads, WeChat 公众号 articles, Bilibili tech videos, RSS feeds.
-- 🆓 **100% free, zero API keys for core** — DuckDuckGo, Algolia HN, Bilibili API, Sogou, `yt-dlp`, `gh`, `feedparser`. No credit card, no quota, no rate-limit headaches.
-- 🥷 **Three-tier stealth fetch with Cloudflare bypass** — `Fetcher` (curl_cffi HTTP) → Jina SaaS → `StealthyFetcher` (patchright Chrome) + `solve_cloudflare`. The only tier that cracks Cloudflare Turnstile/Interstitial.
-- 🧠 **DomainKB remembers per-domain** — no trial-and-error on every fetch; a 24h TTL forces re-probe so the knowledge base never goes stale when a site changes its anti-bot config.
-- ⚡ **Pipeline mode ~40% faster** — `asyncio` streams search results straight into fetch (results don't wait for the slowest source).
-- 🛡️ **Captcha auto-upgrade** — detects captcha pages (环境异常 / Cloudflare / Just a moment) and auto-retries with `stealthy + solve_cloudflare`, surfacing errors so the agent decides what to trust.
-- 🔧 **Adaptive, self-healing selectors** — page redesigns don't break extraction (Scrapling similarity-based relocation + `auto_save`).
-- 🖥️ **Cross-platform** — macOS primary, Linux / WSL2 / Windows best-effort.
-- 🧩 **One CLI + one Skill, agent-agnostic by design** — drops into any agent CLI in ~3 minutes; a `.claude-plugin/` manifest makes it a native Skill for Claude-Code-compatible CLIs, a plain JSON CLI for everything else.
-- 🔍 **Transparent** — `cost="free|paid"` tagging, structured `errors[]`, and original `raw` payloads preserved so agents can grab full text when needed.
-
 ## 🤖 Works with your agent CLI
+
+**Who is this for?** You're using an AI coding agent (Claude Code, Zcode, Codex, etc.) through a relay station, proxy, or self-hosted gateway, and `WebSearch` doesn't work — or you want to search platforms the built-in search can't reach (HN, Reddit, WeChat, Bilibili, RSS). deuseek fixes both.
 
 deuseek is a standard CLI that emits JSON — **any agent that can run shell commands can use it**. The `.claude-plugin/` manifest adds native Skill integration for Claude-Code-compatible CLIs.
 
@@ -79,47 +123,44 @@ deuseek is a standard CLI that emits JSON — **any agent that can run shell com
 
 > Because the contract is "a CLI that prints JSON", deuseek is **agent-agnostic** — you never have to wait for us to "support" your tool. If your agent can spawn a process, it can use deuseek today.
 
-## 🚀 Quick start
+## ✨ Why deuseek?
 
-```bash
-uv tool install git+https://github.com/xyva-yuangui/deuseek.git
-deuseek init                   # writes default ~/.deuseek/preferences.toml
-deuseek search "vibe coding"   # web + hackernews work zero-config
-```
+Anthropic's `WebSearch` is a **server-side tool** (`web_search_20250305`) gated behind two checks:
+1. **Client gate** — only registered for first-party / specific provider configs.
+2. **Upstream gate** — the upstream API must actually *implement* the server tool. **OpenAI-compatible relay stations** (cliproxy, anyrouter, self-hosted gateways) that merely translate Claude API → OpenAI Chat Completions **don't implement it**, so `WebSearch` silently fails. Even where it works, it can't reach HN real-time threads, Reddit deep comments, WeChat 公众号 articles, or Bilibili tech videos.
 
-Unlock sources that need an upstream tool:
+**deuseek fixes this client-side** — a single CLI + Skill that goes straight to Algolia / `yt-dlp` / `gh` / Bilibili API / Sogou / DuckDuckGo, so it works regardless of which API provider your agent CLI points at.
 
-```bash
-deuseek setup youtube     # pip install yt-dlp
-deuseek setup github      # brew install gh (macOS) / winget (Windows)
-deuseek setup reddit      # uv tool install rdt-cli && rdt login
-```
+### How deuseek compares
 
-## 📦 Installation
+| | deuseek | Native `WebSearch` | Paid search APIs | DIY (roll your own) |
+|---|:---:|:---:|:---:|:---:|
+| Works on relay / proxy stations | ✅ | ❌ | n/a | ✅ |
+| Reaches HN / Reddit / WeChat / Bilibili / RSS | ✅ | ❌ | partial | ✅ |
+| Cloudflare / anti-bot bypass | ✅ | ❌ | n/a | ❌ (hard) |
+| URL → full-text markdown | ✅ | WebFetch only | n/a | ✅ |
+| Cost | **free** | included | 💲 paid | free (your time) |
+| Setup time | ~3 min | — | — | hours → days |
 
-**Option A — uv (recommended):**
-```bash
-uv tool install git+https://github.com/xyva-yuangui/deuseek.git
-```
+### Search
 
-**Option B — pip (editable dev install):**
-```bash
-git clone https://github.com/xyva-yuangui/deuseek.git
-cd deuseek
-pip install -e ".[dev]"
-```
+- 🌐 **8 free sources, zero API keys** — DuckDuckGo, Algolia HN, Bilibili API, Sogou, `yt-dlp`, `gh`, `feedparser`. No credit card, no quota, no rate-limit headaches.
+- 🚪 **Works on relay/proxy stations** — where `WebSearch` fails because the upstream doesn't implement the server tool.
+- 🔍 **Transparent** — `cost="free|paid"` tagging, structured `errors[]`, and original `raw` payloads preserved so agents can grab full text when needed.
 
-**Option C — one-line script (macOS/Linux, sets up venv + browsers):**
-```bash
-bash install.sh
-```
+### Fetch
 
-**Optional fetch engines** (for Cloudflare bypass & JS rendering):
-```bash
-pip install "deuseek[fetchers]"          # patchright + curl_cffi + msgspec + protego
-patchright install chromium               # stealth Chrome (Cloudflare bypass)
-playwright install chromium               # JS rendering
-```
+- 🥷 **Three-tier stealth with Cloudflare bypass** — `Fetcher` (curl_cffi HTTP) → Jina SaaS → `StealthyFetcher` (patchright Chrome) + `solve_cloudflare`. The only tier that cracks Cloudflare Turnstile/Interstitial.
+- 🧠 **DomainKB remembers per-domain** — no trial-and-error on every fetch; 24h TTL forces re-probe so the knowledge base self-heals when a site changes its anti-bot config.
+- ⚡ **Pipeline mode ~40% faster** — `asyncio` streams search results straight into fetch (results don't wait for the slowest source).
+- 🛡️ **Captcha auto-upgrade** — detects captcha pages and auto-retries with `stealthy + solve_cloudflare`, surfacing errors so the agent decides.
+
+### Integration
+
+- 🧩 **One CLI, agent-agnostic** — drops into any agent CLI in ~3 minutes; `.claude-plugin/` manifest for native Skill in Claude-Code-compatible CLIs, plain JSON CLI for everything else.
+- 🔧 **Adaptive, self-healing selectors** — page redesigns don't break extraction (Scrapling similarity-based relocation + `auto_save`).
+- 🖥️ **Cross-platform** — macOS primary, Linux / WSL2 / Windows best-effort.
+- 📚 **9 languages** — English (canonical) + العربية / Español / Português (Brasil) / Français / Deutsch / 简体中文 / 日本語 / Русский / 한국어.
 
 ## 📋 Commands
 
@@ -283,12 +324,9 @@ deuseek stands on the shoulders of giants:
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please:
-1. Run `deuseek doctor` and include its output when reporting source/backend issues — 90% of "a source doesn't work" is a missing upstream binary.
-2. Open an issue first for new sources or breaking changes.
-3. Keep adapters conforming to `AdapterBase` (`is_ready` + `search` returning `SearchResult`).
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and [issue templates](.github/ISSUE_TEMPLATE/) for bug reports, feature requests, and new-source requests.
 
-See [issue templates](.github/ISSUE_TEMPLATE/) for bug reports, feature requests, and new-source requests.
+Please run `deuseek doctor` and include its output when reporting source/backend issues — 90% of "a source doesn't work" is a missing upstream binary.
 
 ## 📄 License
 
