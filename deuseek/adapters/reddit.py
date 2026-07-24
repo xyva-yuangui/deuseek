@@ -47,7 +47,9 @@ class RedditAdapter(AdapterBase):
         except json.JSONDecodeError as e:
             raise AdapterUnavailable("reddit", f"non-JSON from rdt-cli: {e}")
         results: list[SearchResult] = []
-        for hit in data.get("results", [])[:limit]:
+        children = data.get("data", {}).get("data", {}).get("children", [])
+        for child in children[:limit]:
+            hit = child.get("data", {})
             permalink = hit.get("permalink") or ""
             url = f"https://www.reddit.com{permalink}" if permalink.startswith("/") else permalink
             results.append(SearchResult(
