@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "deuseek"
+version = "1.0.0-alpha"
+description = "全网通搜索: web + 多平台 (HN / YouTube / GitHub / B站 / 微信 / Reddit / RSS) — 免费多源搜索 CLI + Claude Code Skill"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "xyva-yuangui" }]
+keywords = ["claude", "search", "agent", "skill", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "click>=8.1",
+  "pydantic>=2.5",
+  "httpx>=0.27",
+  "PyYAML>=6.0",
+  "rich>=13.7",
+  "feedparser>=6.0,<7.0",
+  "lxml>=6.1.1",
+  "cssselect>=1.4.0",
+  "ddgs>=9.0",
+  "scrapling>=0.4.11",
+  "html2text>=2024.2.26",
+  "markdownify>=0.13.1",
+]
+
+[project.optional-dependencies]
+fetchers = [
+  "patchright",
+  "msgspec>=0.18",
+  "curl_cffi>=0.7",
+  "protego>=0.3.0",
+]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "respx>=0.21",
+  "pexpect>=4.9",
+]
+all = [
+  "deuseek[fetchers]",
+  "deuseek[dev]",
+]
+
+[project.scripts]
+deuseek = "deuseek.cli:_entrypoint"
+
+[tool.hatch.build.targets.wheel]
+packages = ["deuseek"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = []

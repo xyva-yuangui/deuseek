@@ -1,0 +1,62 @@
+"""Router — picks which sources to fan out to for a given query."""
+
+from __future__ import annotations
+
+import re as _re
+from dataclasses import dataclass, field
+
+from deuseek.registry import Registry
+
+MAX_SOURCES = 5
+_URL_RE = _re.compile(r"^(https?|file)://", _re.IGNORECASE)
+
+
+@dataclass
+class RouteRequest:
+    query: str
+    explicit_sources: list[str] | None = None
+    mode: str = "auto"
+
+
+@dataclass
+class Route:
+    source_ids: list[str]
+    rationale: str
+    unknown_sources: list[str] = field(default_factory=list)
+
+
+class Router:
+    def __init__(self, registry: Registry) -> None:
+        self.registry = registry
+
+    def plan(self, req: RouteRequest) -> Route:
+        if req.explicit_sources:
+            valid = [s.id for s in self.registry.sources]
+            chosen = [s for s in req.explicit_sources if s in valid]
+            unknown = [s for s in req.explicit_sources if s not in valid]
+            return Route(source_ids=chosen, rationale="explicit --on", unknown_sources=unknown)
+
+        if req.mode == "quick":
+            return Route(source_ids=["web", "hackernews"], rationale="mode=quick")
+
+        if req.mode == "deep":
+            all_ready = [s.id for s in self.registry.sources if s.tier == "ready"]
+            return Route(source_ids=all_ready[:MAX_SOURCES], rationale="mode=deep")
+
+        hinted = [s.id for s in self.registry.sources_matching_hints(req.query)]
+        defaults = [s.id for s in self.registry.default_auto_sources()]
+        merged: list[str] = []
+        for sid in hinted + defaults:
+            if sid not in merged:
+                merged.append(sid)
+            if len(merged) >= MAX_SOURCES:
+                break
+
+        # rss requires URL query; gate it
+        if not _URL_RE.match(req.query.strip()):
+            merged = [s for s in merged if s != "rss"]
+        elif "rss" not in merged:
+            # query is a URL → include rss even if default_in_auto=false
+            merged.append("rss")
+
+        return Route(source_ids=merged, rationale="auto: hints + defaults")

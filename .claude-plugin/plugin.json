@@ -1,0 +1,11 @@
+{
+  "name": "deuseek",
+  "version": "1.0.0-alpha",
+  "description": "全网通搜索 Skill: web + HN/YouTube/GitHub/B站/微信公众号/Reddit/RSS 一站接入, 免费多源搜索 + Scrapling 隐身抓取, 中转站用户也能用",
+  "author": "xyva-yuangui",
+  "license": "MIT",
+  "homepage": "https://github.com/xyva-yuangui/deuseek",
+  "components": {
+    "skills": ["./skills/deuseek"]
+  }
+}

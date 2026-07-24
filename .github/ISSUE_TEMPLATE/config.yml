@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 文档 / README
+    url: https://github.com/xyva-yuangui/deuseek/blob/main/README.md
+    about: 看一下源列表、部署步骤、`deuseek doctor` 使用方式
+  - name: 🗂️ Release Notes
+    url: https://github.com/xyva-yuangui/deuseek/releases
+    about: 检查你装的版本和最新版有什么变化，可能问题已经修过了
