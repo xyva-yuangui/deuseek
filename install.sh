@@ -64,7 +64,13 @@ rsync -a --exclude='.venv' --exclude='.git' --exclude='__pycache__' \
          "$SCRIPT_DIR/" "$SKILL_DIR/"
 echo "  ✓ 代码已复制"
 
-# ---- Step 3: Create venv + install ----
+	# Copy SKILL.md to skill root for ZCode / non-Claude agents
+	if [ -f "$SKILL_DIR/.claude-plugin/skills/deuseek/SKILL.md" ]; then
+		cp "$SKILL_DIR/.claude-plugin/skills/deuseek/SKILL.md" "$SKILL_DIR/SKILL.md"
+		echo "  ✓ SKILL.md 已复制到技能根目录"
+	fi
+
+	# ---- Step 3: Create venv + install ----
 echo ""
 echo "▸ [3/5] 创建虚拟环境并安装依赖..."
 
@@ -77,8 +83,8 @@ $PIP install --upgrade pip --quiet 2>&1 | tail -1
 echo "  安装 deuseek + 核心依赖 (scrapling, httpx, pydantic, rich, ddgs)..."
 $PIP install "$SKILL_DIR" --quiet 2>&1 | tail -3
 
-echo "  安装 fetcher 引擎依赖 (patchright, playwright, browserforge, markdownify)..."
-$PIP install patchright playwright browserforge markdownify msgspec protego --quiet 2>&1 | tail -3
+echo "  安装 fetcher 引擎依赖 (scrapling, curl_cffi, patchright, playwright, ...)..."
+	$PIP install patchright playwright browserforge markdownify msgspec protego curl_cffi --quiet 2>&1 | tail -3
 
 echo "  ✓ 依赖安装完成"
 

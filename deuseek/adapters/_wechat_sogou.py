@@ -129,6 +129,7 @@ def parse_sogou_serp(html_text: str, *, limit: int) -> list[SearchResult]:
 
 async def search_sogou(query: str, *, limit: int = 10, timeout: float = 15.0) -> list[SearchResult]:
     """Public entry point used by wechat orchestrator."""
+    import asyncio
     url = SOGOU_BASE + SOGOU_SEARCH_PATH.format(q=quote_plus(query))
-    html_text = _fetch(url, timeout=timeout)
+    html_text = await asyncio.to_thread(_fetch, url, timeout=timeout)
     return parse_sogou_serp(html_text, limit=limit)

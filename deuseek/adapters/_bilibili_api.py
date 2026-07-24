@@ -82,9 +82,14 @@ def parse_bilibili_response(payload: dict, *, limit: int) -> list[SearchResult]:
 
 async def search_bilibili(query: str, *, limit: int = 10, timeout: float = 15.0) -> list[SearchResult]:
     """Public entry point used by bilibili orchestrator."""
-    try:
+    import asyncio
+
+    def _do_request():
         with httpx.Client(headers=_HEADERS, timeout=timeout) as c:
-            resp = c.get(BILI_SEARCH_URL, params={"keyword": query})
+            return c.get(BILI_SEARCH_URL, params={"keyword": query})
+
+    try:
+        resp = await asyncio.to_thread(_do_request)
     except httpx.HTTPError as e:
         raise AdapterUnavailable("bilibili:api", f"http error: {e}") from e
     if resp.status_code == 412 or resp.status_code == 403:
