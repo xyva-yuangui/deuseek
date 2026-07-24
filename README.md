@@ -1,248 +1,295 @@
 # deuseek
 
-> 全网通搜索 — 一个 CLI + Claude Code Skill, 给中转站 Agent 用户补齐 WebSearch + 多平台读取能力。
+> The universal search & stealth-fetch layer for any AI coding agent. Bypass the WebSearch gate, reach the sources server-side search can't, and turn any URL into clean markdown — **100% free, no API keys required**.
 
-> 基于 [Daily-AC/deuseek](https://github.com/Daily-AC/deuseek) (MIT) fork 改造, 精简为**纯免费版本**: 移除付费 booster 与 OpenCLI 类源, 保留全部 Scrapling 隐身抓取能力。
+> Fetch layer powered by [Scrapling](https://github.com/D4Vinci/Scrapling) by **D4Vinci** — used with gratitude. 🙏
 
-> **Works with**: Claude Code · Antigravity (`agy`) · 任何识别 `.claude-plugin/` manifest 的 Agent CLI。
-
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://www.python.org/)
+[![Sources](https://img.shields.io/badge/sources-8%20free-success.svg)](#-supported-sources-all-free)
+[![Status](https://img.shields.io/badge/status-1.0.0--alpha-orange.svg)](#)
 
-## 为什么需要 deuseek
+🌐 **English** | [العربية](docs/README.ar.md) | [Español](docs/README.es.md) | [Português (Brasil)](docs/README.pt-BR.md) | [Français](docs/README.fr.md) | [Deutsch](docs/README.de.md) | [简体中文](docs/README.zh-CN.md) | [日本語](docs/README.ja.md) | [Русский](docs/README.ru.md) | [한국어](docs/README.ko.md)
 
-Claude Code 的 WebSearch 是**服务端 server tool** (`web_search_20250305`), 真实可用性经过两层 gate:
+---
 
-1. **客户端 gate** — `WebSearchTool.isEnabled()` 看 API provider; 默认 `firstParty` 才注册。
-2. **上游 server tool 实现 gate** — 上游 API 服务必须专门实现 `web_search_20250305`。
+## Table of contents
+- [✨ Why deuseek?](#-why-deuseek)
+- [🤖 Works with your agent CLI](#-works-with-your-agent-cli)
+- [🚀 Quick start](#-quick-start)
+- [📦 Installation](#-installation)
+- [📋 Commands](#-commands)
+- [📚 Supported sources (all free)](#-supported-sources-all-free)
+- [🥷 Fetch engine architecture](#-fetch-engine-architecture)
+- [🤝 Agent calling convention](#-agent-calling-convention)
+- [⚙️ Preferences](#️-preferences)
+- [🪟 Platform support](#-platform-support)
+- [🏗️ Architecture](#️-architecture)
+- [🙏 Acknowledgments](#-acknowledgments)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
 
-OpenAI 兼容中转站 (cliproxy / anyrouter 等单纯把 Claude API → OpenAI Chat Completions 转译) **不识 server tool 这套语义**, WebSearch 直接失败。即便真有 WebSearch, 它也搜不到 HN 实时讨论 / Reddit 深度评论 / 微信公众号文章 / B站技术视频 这些纵向源。
+---
 
-deuseek 给所有这些用户补一个**客户端实现的多源 search + fetch CLI** (直连 Algolia / `yt-dlp` / `gh` / B站 API / Sogou / DuckDuckGo), 对外只暴露一个轻量 CLI + 一个 Claude Skill, **3 分钟内**装好就能用。
+## ✨ Why deuseek?
 
-## 快速开始
+Anthropic's `WebSearch` is a **server-side tool** (`web_search_20250305`) gated behind two checks:
+1. **Client gate** — only registered for first-party / specific provider configs.
+2. **Upstream gate** — the upstream API must actually *implement* the server tool. **OpenAI-compatible relay stations** (cliproxy, anyrouter, self-hosted gateways) that merely translate Claude API → OpenAI Chat Completions **don't implement it**, so `WebSearch` silently fails. Even where it works, it can't reach HN real-time threads, Reddit deep comments, WeChat 公众号 articles, or Bilibili tech videos.
+
+**deuseek fixes this client-side** — a single CLI + Skill that goes straight to Algolia / `yt-dlp` / `gh` / Bilibili API / Sogou / DuckDuckGo, so it works regardless of which API provider your agent CLI points at.
+
+### Key advantages
+
+| | deuseek | Native `WebSearch` | Paid search APIs |
+|---|:---:|:---:|:---:|
+| Works on OpenAI-compatible relay/proxy stations | ✅ | ❌ | n/a |
+| Reaches HN / Reddit / WeChat / Bilibili / RSS | ✅ | ❌ | partial |
+| Cloudflare / anti-bot bypass | ✅ | ❌ | n/a |
+| URL → full-text markdown | ✅ | WebFetch only | n/a |
+| Cost | **free** | included | 💲 paid |
+| Setup time | ~3 min | — | — |
+
+- 🚪 **Bypasses the two-layer WebSearch gate** — runs on relay/proxy stations where `WebSearch` silently fails because the upstream doesn't implement the server tool.
+- 🌐 **Reaches vertical sources server-side search can't** — HN real-time discussions, Reddit deep comment threads, WeChat 公众号 articles, Bilibili tech videos, RSS feeds.
+- 🆓 **100% free, zero API keys for core** — DuckDuckGo, Algolia HN, Bilibili API, Sogou, `yt-dlp`, `gh`, `feedparser`. No credit card, no quota, no rate-limit headaches.
+- 🥷 **Three-tier stealth fetch with Cloudflare bypass** — `Fetcher` (curl_cffi HTTP) → Jina SaaS → `StealthyFetcher` (patchright Chrome) + `solve_cloudflare`. The only tier that cracks Cloudflare Turnstile/Interstitial.
+- 🧠 **DomainKB remembers per-domain** — no trial-and-error on every fetch; a 24h TTL forces re-probe so the knowledge base never goes stale when a site changes its anti-bot config.
+- ⚡ **Pipeline mode ~40% faster** — `asyncio` streams search results straight into fetch (results don't wait for the slowest source).
+- 🛡️ **Captcha auto-upgrade** — detects captcha pages (环境异常 / Cloudflare / Just a moment) and auto-retries with `stealthy + solve_cloudflare`, surfacing errors so the agent decides what to trust.
+- 🔧 **Adaptive, self-healing selectors** — page redesigns don't break extraction (Scrapling similarity-based relocation + `auto_save`).
+- 🖥️ **Cross-platform** — macOS primary, Linux / WSL2 / Windows best-effort.
+- 🧩 **One CLI + one Skill, agent-agnostic by design** — drops into any agent CLI in ~3 minutes; a `.claude-plugin/` manifest makes it a native Skill for Claude-Code-compatible CLIs, a plain JSON CLI for everything else.
+- 🔍 **Transparent** — `cost="free|paid"` tagging, structured `errors[]`, and original `raw` payloads preserved so agents can grab full text when needed.
+
+## 🤖 Works with your agent CLI
+
+deuseek is a standard CLI that emits JSON — **any agent that can run shell commands can use it**. The `.claude-plugin/` manifest adds native Skill integration for Claude-Code-compatible CLIs.
+
+| Agent tool | How to use deuseek |
+|---|---|
+| **Claude Code** (Anthropic) | `/plugin marketplace add xyva-yuangui/deuseek` → `/plugin install deuseek`, then *"use deuseek to search ..."*. Also works as a plain CLI. |
+| **Zcode** | Call `deuseek search --json "..."` / `deuseek fetch --json <url>` from the shell, or load the Skill. |
+| **Codex** (OpenAI Codex CLI) | Run `deuseek` as a subprocess and parse the JSON envelope. |
+| **Reasonix** | Subprocess JSON, or load as a skill. |
+| **OpenClaw** | Run `deuseek` as a shell command and parse JSON. |
+| **Hermes** | Subprocess JSON. |
+| **Antigravity** (`agy`) | `agy plugin install` (recognizes `.claude-plugin/`). |
+| Any other agent | Run `deuseek <command> --json` as a shell command, parse the JSON envelope. |
+
+> Because the contract is "a CLI that prints JSON", deuseek is **agent-agnostic** — you never have to wait for us to "support" your tool. If your agent can spawn a process, it can use deuseek today.
+
+## 🚀 Quick start
 
 ```bash
 uv tool install git+https://github.com/xyva-yuangui/deuseek.git
-deuseek init                  # 写默认 ~/.deuseek/preferences.toml
-deuseek search "vibe coding"  # web + hackernews 立即可用 (零配置)
+deuseek init                   # writes default ~/.deuseek/preferences.toml
+deuseek search "vibe coding"   # web + hackernews work zero-config
 ```
 
-要打开需要上游工具的源:
+Unlock sources that need an upstream tool:
 
 ```bash
-deuseek setup youtube    # pip install yt-dlp
-deuseek setup github     # 提示 brew install gh (macOS) / winget (Windows)
-deuseek setup reddit     # uv tool install rdt-cli + rdt login
+deuseek setup youtube     # pip install yt-dlp
+deuseek setup github      # brew install gh (macOS) / winget (Windows)
+deuseek setup reddit      # uv tool install rdt-cli && rdt login
 ```
 
-### 在 Claude Code 里用
+## 📦 Installation
 
-```
-/plugin marketplace add xyva-yuangui/deuseek
-/plugin install deuseek
-```
-
-然后在对话里直接说: "用 deuseek 搜一下 ..."
-
-## 命令
-
-| 命令 | 干嘛 |
-|---|---|
-| `deuseek search "<query>"` | 搜索 (SERP: metadata + URL, content ≤500 字) |
-| `deuseek search --on hackernews,web "..."` | 指定源 |
-| `deuseek search --mode quick "..."` | 只查 web + hackernews |
-| `deuseek search --mode deep "..."` | 查所有就绪源 |
-| `deuseek search --json "..."` | 显式 JSON 输出 |
-| `deuseek search --no-cache "..."` | 跳过缓存, 强制刷新 |
-| **`deuseek fetch <url>`** | **URL → 全文 markdown** — Scrapling 三层路由 + DomainKB |
-| `deuseek fetch <url> --backend jina` | 强制走 Jina Reader SaaS (零本地依赖) |
-| `deuseek fetch <url> --backend stealthy --solve-cloudflare` | 强制隐身 Chrome + 绕 CF |
-| `deuseek fetch <url> --backend dynamic` | 强制 Playwright JS 渲染 |
-| `deuseek fetch <url> --full` | 转换整页 HTML (默认只取正文) |
-| **`deuseek super "<query>"`** | **端到端**: 多源 search → Scrapling 抓取 → (可选) extract, pipeline 流式 (~40% 提速) |
-| `deuseek crawl <url>` | 多页 Spider 爬取 (Scrapling async Spider + checkpoint) |
-| `deuseek extract <url>` | 自适应结构化提取 (CSS/XPath + 改版自愈 adaptive 重定位) |
-| `deuseek domain-kb` | 查看/清空 domain→backend 知识库 (`--clear`) |
-| `deuseek init` | 写默认 `~/.deuseek/preferences.toml` |
-| `deuseek sources` | 列出所有源 + 心愿单状态 (`--probe` 实测) |
-| `deuseek setup <source>` | 引导式配置一个源 |
-| `deuseek doctor` | 健康检查 (sources + fetch backends + BrowserPool) |
-| `deuseek check-update` | 比对 GitHub Releases |
-| `deuseek preferences {show,edit,reset,path}` | 用户偏好 |
-
-### Agent 调用约定 (重要)
-
-作为 Agent 调用 deuseek 时, **永远显式拿 JSON**, 防止 TTY 表格 wrap 让你抠不到字段:
-
+**Option A — uv (recommended):**
 ```bash
-# 方式 1: 每条命令加 --json
-deuseek search --json "..."
-deuseek fetch  --json "<url>"
-
-# 方式 2: 一次性 env (整个 Agent harness 生效, 推荐)
-export DEUSEEK_FORCE_JSON=1
+uv tool install git+https://github.com/xyva-yuangui/deuseek.git
 ```
 
-`not isatty()` 会自动切 JSON, 但有些 Agent 终端 (如 Antigravity) 给子进程分配真 PTY 让 isatty()=True, 自动检测失效 —— 显式 `--json` 或 env var 是 always-works 保险。
-
-## 支持的源 (全部免费)
-
-| 源 | tier | 依赖 | 说明 |
-|---|---|---|---|
-| web | ✅ ready | `ddgs` (pip) | DuckDuckGo 通用网页搜索 |
-| hackernews | ✅ ready | 无 | 直连 Algolia HN API, 零配置 |
-| youtube | ✅ ready | `yt-dlp` (pip) | `deuseek setup youtube` |
-| github | ✅ ready | `gh` CLI + `gh auth login` | `deuseek setup github` |
-| rss | ✅ ready | 内置 feedparser | **query 必须是 feed URL** |
-| wechat | ✅ ready | 无 | 微信公众号 — Sogou 免费搜索 (可选 Scrapling StealthyFetcher 反检测增强) |
-| bilibili | ✅ ready | 无 | B站 — 官方 search API (`api.bilibili.com/x/web-interface/search/all/v2`) |
-| reddit | 🟡 one_step | `rdt-cli` + `rdt login` | `deuseek setup reddit` |
-
-> 想要全文? 上游本身返全文的源 (wechat Sogou 卡片) 把完整 payload 保留在 `result.raw` (如 `raw["item_html"]`); 其他源 content 一般 < 500 字。真要全文走 `deuseek fetch <url>`。
-
-## 如何取全文 — `deuseek fetch <url>`
-
-`fetch` 是 search → 全文 pipeline 的官方收敛形态, **host-aware** 自动选 backend:
-
-```bash
-# 任意网页 → Fetcher (curl_cffi) 优先, jina fallback, Stealthy+CF 兜底
-deuseek fetch https://example.com/article --json
-
-# 微信公众号 → 自动走 OpenCLI 登录态 Chrome (需装 Daily-AC/OpenCLI fork)
-deuseek fetch https://mp.weixin.qq.com/s/<token> --json
-
-# B站视频 → 自动走 native 官方 view API
-deuseek fetch https://www.bilibili.com/video/BVxxxx --json
-
-# search → fetch pipeline 一气呵成
-deuseek search --on wechat "claude 4.7" --json \
-  | jq -r '.results[].url' \
-  | xargs -I{} deuseek fetch --json {}
-```
-
-Backend 矩阵 (`--backend auto` 路由规则):
-
-| URL host | `--backend auto` 走 | 备注 |
-|---|---|---|
-| `mp.weixin.qq.com` | **native_wechat** (OpenCLI 登录态) | 装 [Daily-AC/OpenCLI fork](https://github.com/Daily-AC/OpenCLI) 拿 `weixin download --stdout`; 直接 fetcher/jina 会被微信"环境异常"验证码拦 |
-| `bilibili.com` | **native_bilibili** (官方 view API) | 抽 bvid/avid 调 `api.bilibili.com/x/web-interface/view` |
-| `douyin.com` | **native_douyin** (OpenCLI fork) | 需 OpenCLI fork + Chrome 登录态 |
-| 其它 host | **fetcher → jina → stealthy** | 三层递进, 越往后越能破反爬 |
-
-显式 `--backend` 覆盖 auto: `fetcher` / `stealthy` / `dynamic` / `jina` / `native`。
-
-## Scrapling 引擎整合
-
-`deuseek fetch` / `super` / `crawl` / `extract` 底层用 [Scrapling](https://github.com/D4Vinci/Scrapling) —— 把 HTTP 抓取 / 浏览器隐身 / 自适应解析 / 多页 Spider 全收敛到一个依赖。
-
-### 三层 fetch 引擎 (FetchRouter)
-
-| 引擎 | 实现 | 典型耗时 | 用途 |
-|---|---|---|---|
-| **Fetcher** | Scrapling `Fetcher` (curl_cffi HTTP + TLS 指纹 impersonate) | 0.4-3.9s | 默认引擎, 80%+ URL 走这里, 纯 HTTP 无浏览器开销 |
-| **jina** | [Jina Reader](https://r.jina.ai/) SaaS (服务端 IP) | 2.2-5.7s | Fetcher 失败/被拦时的 fallback, 服务器 IP 穿透部分反爬 |
-| **StealthyFetcher** | Scrapling `StealthyFetcher` (patchright 隐身 Chrome) + `solve_cloudflare` | 7.8s (无 CF) / 37s (解 CF) | 兜底, 唯一能过 Cloudflare Turnstile/Interstitial |
-| DynamicFetcher | Scrapling `DynamicFetcher` (Playwright) | 4.9-6.9s | JS 渲染专用, 显式 `--backend dynamic` 才走 |
-
-> 三层递进是有意为之: Fetcher 快但遇 Cloudflare 就废, StealthyFetcher 能破 CF 但 37s 太慢不能当默认。路由器先试快的, 失败才升级。
-
-### DomainKB — domain→backend 记忆
-
-每个 domain 记一个"哪个引擎能 work" + "哪些被 block"的映射, 避免每次 trial-and-error。
-
-- 存储: 平台路径 (macOS `~/Library/Application Support/deuseek/`, Linux XDG `~/.local/share/deuseek/`, Windows `%APPDATA%/deuseek/`)
-- **TTL 24h**: entry 过期后强制 re-probe, 防止站点改了反爬配置后知识库陈旧
-- `FetchRouter.record_success()` / `record_failure()` 在 fetch 成功/失败时自动写回
-
-```bash
-deuseek domain-kb              # 列出所有 domain→backend 映射 (含 expired 状态)
-deuseek domain-kb --clear      # 清空知识库
-deuseek domain-kb --json       # JSON 输出
-```
-
-### BrowserPool — 浏览器实例预热
-
-StealthyFetcher / DynamicFetcher 每次冷启 Chrome 要 2-4s。`BrowserPool` 维护常驻 warm session, 后续 fetch 复用, 冷启从 2.4s 降到 ~1s。空闲 5 分钟自动 `shrink()` 关浏览器 (~200-500MB/实例)。`deuseek doctor` 会 surface warm 状态。
-
-### pipeline 模式 — `deuseek super`
-
-旗舰命令把 search → fetch → extract 串成一条流水线, 用 `asyncio.as_completed` 真流式: 第一个搜索结果一到就立刻开抓, 跟剩余搜索重叠 (~40% 提速)。
-
-```bash
-deuseek super "iPhone 16 评测"
-deuseek super "Python asyncio" --sources hackernews,web --stream   # 流式 JSON Lines
-deuseek super "React 19" --extract-fields '{"title":"h1::text"}'   # 顺带结构化提取
-```
-
-### 验证码自动升级
-
-`fetch` 命令对每个 backend 返回内容做关键词启发式 (`环境异常 / 完成验证后即可继续访问 / 请输入验证码 / Cloudflare / Just a moment / Checking your browser` 等)。命中验证码页时:
-
-1. envelope `errors[]` 加 `captcha_suspected: ...`
-2. 若 StealthyFetcher 可用且本次没试过, **自动重试** `StealthyEngine.fetch(url, solve_cloudflare=True)`
-3. 成功则 `errors[]` 追加 `auto_upgraded: stealthy+solve_cloudflare succeeded`, 失败则 `auto_upgrade_failed`
-
-(graceful degrade —— Agent 自己读 errors 决定信不信; markdown 字段保留。)
-
-## ⚙️ 用户偏好
-
-`~/.deuseek/preferences.toml` 可配置默认源、语言、输出格式、source_trust 覆盖。
-
-```bash
-deuseek preferences show     # 查看当前配置
-deuseek preferences edit     # 用 $EDITOR 编辑 (Windows fallback notepad)
-deuseek preferences reset    # 重置 (备份原文件到 .bak)
-deuseek preferences path     # 打印文件位置
-```
-
-API Key (本 fork 默认不需要任何 Key): 如有需要可放 `~/.deuseek/secrets.env` (KEY=VALUE, POSIX 下权限宽松会警告)。
-
-## 升级
-
-```bash
-deuseek check-update                                            # 比对 GitHub Releases
-uv tool install --force git+https://github.com/xyva-yuangui/deuseek.git   # 拉最新
-```
-
-> ⚠️  `uv tool upgrade deuseek` **不会**拉新 commit (uv 把 git URL 装的工具锁在 install 时的 commit 上)。`--force` 重装才会去 fetch 最新。
-
-## 🪟 平台支持
-
-| 平台 | 状态 | 说明 |
-|---|---|---|
-| macOS | ✅ 主要开发平台 | 全部源 + 三 fetch backend 测试过 |
-| Linux | 🟡 best-effort | 应能 work；setup 流程对 `apt`/`pacman` 不自动 |
-| WSL2 | 🟡 best-effort | 跟 Linux 一样 |
-| Windows (原生 PowerShell) | 🟡 实验性 | `secrets_env` 不调 POSIX chmod；preferences edit fallback notepad；setup github 提示 `winget install GitHub.cli`。**遇到问题请提 issue**。 |
-
-跑 `deuseek doctor` 会在顶部打印 platform / Python 版本, 方便提 issue 时附上。
-
-## 安装 (一键脚本, macOS/Linux)
-
-```bash
-bash install.sh   # 检查 Python 3.10+ → 复制到 ~/.agents/skills/deuseek/ → venv → 装依赖 → 下 Chromium → doctor
-```
-
-## 开发
-
+**Option B — pip (editable dev install):**
 ```bash
 git clone https://github.com/xyva-yuangui/deuseek.git
 cd deuseek
-uv sync            # 或 pip install -e ".[dev]"
-python -m pytest tests/ -x -q
+pip install -e ".[dev]"
 ```
 
-## 设计要点
+**Option C — one-line script (macOS/Linux, sets up venv + browsers):**
+```bash
+bash install.sh
+```
 
-- **Adapter 模式**: 每源一个 adapter, 实现 `AdapterBase` ABC (`is_ready` + `search`)
-- **异步并发**: `Dispatcher` `asyncio.gather` + 单源错误隔离 (unavailable vs failed)
-- **YAML 注册**: `sources.yml` 单一真相源 (tier / adapter / trust / timeout / deps)
-- **Router**: query_hints 子串匹配 + default_auto 合并, MAX_SOURCES=5, RSS 需 URL query
-- **Scorer**: `0.4*recency_norm + 0.6*source_trust`, 无时间戳默认 0.5
-- **缓存**: L1 内存 + L2 文件, URL 规范化 (剥 utm_*/fbclid 等 tracking) 共享条目
-- **契约**: pydantic `SearchResult.content` field_validator 全局截 500 字, 全文留 `raw`
+**Optional fetch engines** (for Cloudflare bypass & JS rendering):
+```bash
+pip install "deuseek[fetchers]"          # patchright + curl_cffi + msgspec + protego
+patchright install chromium               # stealth Chrome (Cloudflare bypass)
+playwright install chromium               # JS rendering
+```
 
-## License
+## 📋 Commands
 
-MIT — 见 [LICENSE](LICENSE)。基于 [Daily-AC/deuseek](https://github.com/Daily-AC/deuseek) (MIT) fork, 上游版权声明保留。
+| Command | What it does |
+|---|---|
+| `deuseek search "<query>"` | Multi-source search (SERP: metadata + URL; content ≤500 chars) |
+| `deuseek search --on hackernews,web "..."` | Restrict to specific sources |
+| `deuseek search --mode quick "..."` | Only web + hackernews |
+| `deuseek search --mode deep "..."` | All ready sources |
+| `deuseek search --json "..."` | Explicit JSON output |
+| `deuseek search --no-cache "..."` | Skip cache, force refresh |
+| **`deuseek fetch <url>`** | **URL → full-text markdown** (Scrapling three-tier routing + DomainKB) |
+| `deuseek fetch <url> --backend jina` | Force Jina Reader SaaS (zero local deps) |
+| `deuseek fetch <url> --backend stealthy --solve-cloudflare` | Force stealth Chrome + CF bypass |
+| `deuseek fetch <url> --backend dynamic` | Force Playwright JS rendering |
+| `deuseek fetch <url> --full` | Convert whole page (default: main content only) |
+| **`deuseek super "<query>"`** | **End-to-end**: multi-source search → stealth fetch → (optional) extract, streaming pipeline (~40% faster) |
+| `deuseek crawl <url>` | Multi-page Spider crawl (Scrapling async Spider + checkpoint) |
+| `deuseek extract <url>` | Adaptive structured extraction (CSS/XPath + self-healing relocation) |
+| `deuseek domain-kb` | View/clear the domain→backend knowledge base (`--clear`) |
+| `deuseek init` | Write default `~/.deuseek/preferences.toml` |
+| `deuseek sources` | List all sources + readiness (`--probe` to test) |
+| `deuseek setup <source>` | Guided setup for a source |
+| `deuseek doctor` | Health check (sources + fetch backends + BrowserPool) |
+| `deuseek check-update` | Compare against GitHub Releases |
+| `deuseek preferences {show,edit,reset,path}` | User preferences |
+
+## 📚 Supported sources (all free)
+
+| Source | Tier | Dependency | Notes |
+|---|---|---|---|
+| web | ✅ ready | `ddgs` (pip) | DuckDuckGo general web search |
+| hackernews | ✅ ready | none | Algolia HN API, zero-config |
+| youtube | ✅ ready | `yt-dlp` (pip) | `deuseek setup youtube` |
+| github | ✅ ready | `gh` CLI + `gh auth login` | `deuseek setup github` |
+| rss | ✅ ready | built-in `feedparser` | **query must be a feed URL** |
+| wechat | ✅ ready | none | WeChat 公众号 — free Sogou search (optional Scrapling stealth boost) |
+| bilibili | ✅ ready | none | Bilibili official search API |
+| reddit | 🟡 one_step | `rdt-cli` + `rdt login` | `deuseek setup reddit` |
+
+> **Full text?** Sources whose upstream returns full content keep the original payload in `result.raw` (e.g. wechat's `raw["item_html"]`). For everything else, run `deuseek fetch <url>`.
+
+## 🥷 Fetch engine architecture
+
+`deuseek fetch` / `super` / `crawl` / `extract` are built on [Scrapling](https://github.com/D4Vinci/Scrapling) — one dependency covering HTTP fetch, stealth browser, adaptive parsing, and async Spider.
+
+### Three-tier routing (FetchRouter)
+
+| Engine | Implementation | Typical time | Use |
+|---|---|---|---|
+| **Fetcher** | Scrapling `Fetcher` (curl_cffi HTTP + TLS impersonation) | 0.4–3.9s | Default, 80%+ of URLs, pure HTTP no browser |
+| **jina** | [Jina Reader](https://r.jina.ai/) SaaS (server-side IP) | 2.2–5.7s | Fallback when Fetcher is blocked |
+| **StealthyFetcher** | Scrapling `StealthyFetcher` (patchright stealth Chrome) + `solve_cloudflare` | 7.8s / 37s (CF) | Last resort — only one that cracks Cloudflare Turnstile |
+| DynamicFetcher | Scrapling `DynamicFetcher` (Playwright) | 4.9–6.9s | JS-render-only sites, explicit `--backend dynamic` |
+
+> The escalation is intentional: Fetcher is fast but dies on Cloudflare; StealthyFetcher cracks CF but 37s is too slow to be default. The router tries fast first and escalates only on failure.
+
+### DomainKB — per-domain memory
+
+Remembers which engine works and which is blocked per domain, so we don't trial-and-error every fetch.
+- Storage: platform path (macOS `~/Library/Application Support/deuseek/`, Linux XDG `~/.local/share/deuseek/`, Windows `%APPDATA%/deuseek/`)
+- **24h TTL** — expired entries force a re-probe, so stale records self-heal when a site changes its anti-bot config
+- `record_success` / `record_failure` write back automatically on every fetch
+
+```bash
+deuseek domain-kb              # list all domain→backend mappings (with expired status)
+deuseek domain-kb --clear      # wipe the knowledge base
+```
+
+### BrowserPool — warm browser sessions
+
+Stealthy/Dynamic cold-start a Chrome in 2–4s. `BrowserPool` keeps a warm session and reuses it, dropping subsequent fetches to ~1s. Idle 5 min → auto `shrink()` (~200–500MB/instance freed). `deuseek doctor` reports the warm state.
+
+### Pipeline mode — `deuseek super`
+
+The flagship command chains search → fetch → extract into a real pipeline: as soon as the first search result arrives, fetching starts and overlaps the remaining searches (~40% faster than serial).
+
+```bash
+deuseek super "iPhone 16 review"
+deuseek super "Python asyncio" --sources hackernews,web --stream   # streaming JSON Lines
+deuseek super "React 19" --extract-fields '{"title":"h1::text"}'   # + structured extraction
+```
+
+### Captcha auto-upgrade
+
+`fetch` scans every backend's output for captcha keywords (`环境异常 / 完成验证后即可继续访问 / 请输入验证码 / Cloudflare / Just a moment / Checking your browser`). On a hit:
+1. `errors[]` gets a `captcha_suspected: ...` entry
+2. If StealthyFetcher is available and wasn't tried, it **auto-retries** `stealthy + solve_cloudflare=True`
+3. Success → `auto_upgraded: stealthy+solve_cloudflare succeeded`; failure → `auto_upgrade_failed`
+
+Graceful degrade — the agent reads `errors` and decides what to trust; `markdown` is always preserved.
+
+## 🤝 Agent calling convention
+
+**Always take JSON explicitly** when calling deuseek from an agent, so TTY table wrapping doesn't lose fields:
+
+```bash
+# Option 1: --json per command
+deuseek search --json "..."
+deuseek fetch  --json "<url>"
+
+# Option 2: env var (applies to the whole agent harness — recommended)
+export DEUSEEK_FORCE_JSON=1
+```
+
+`not isatty()` auto-switches to JSON, but some agent terminals (e.g. Antigravity) allocate a real PTY so `isatty()` is True and auto-detection fails — explicit `--json` or the env var is the always-works guarantee.
+
+Standard search envelope:
+```json
+{
+  "query": "...",
+  "ts": "ISO 8601 Z",
+  "results": [{"source","title","url","content","ts","score","raw","cost"}],
+  "errors":  [{"source","error","category"}]
+}
+```
+
+## ⚙️ Preferences
+
+`~/.deuseek/preferences.toml` configures default sources, language, output format, and `trust` overrides.
+
+```bash
+deuseek preferences show     # view current config
+deuseek preferences edit     # edit with $EDITOR (Windows fallback: notepad)
+deuseek preferences reset    # reset (backs up to .bak)
+deuseek preferences path     # print the file path
+```
+
+API keys (optional — the core needs none) go in `~/.deuseek/secrets.env` (`KEY=VALUE`; POSIX warns on loose permissions).
+
+## 🪟 Platform support
+
+| Platform | Status | Notes |
+|---|---|---|
+| macOS | ✅ Primary | All sources + all three fetch backends tested |
+| Linux | 🟡 Best-effort | Works; setup flow doesn't auto-handle `apt`/`pacman` |
+| WSL2 | 🟡 Best-effort | Same as Linux |
+| Windows (native PowerShell) | 🟡 Experimental | `secrets_env` skips POSIX chmod; preferences edit falls back to notepad; setup github suggests `winget install GitHub.cli`. **Please open an issue if you hit problems.** |
+
+`deuseek doctor` prints platform / Python version at the top — attach it when filing issues.
+
+## 🏗️ Architecture
+
+- **Adapter pattern** — one adapter per source, implementing `AdapterBase` (`is_ready` + `search`)
+- **Async fan-out** — `Dispatcher` uses `asyncio.gather` with per-source error isolation (`unavailable` vs `failed`)
+- **YAML registry** — `sources.yml` is the single source of truth (tier / adapter / trust / timeout / deps)
+- **Router** — substring query_hints + `default_in_auto` merge, `MAX_SOURCES=5`, RSS gated on URL queries
+- **Scorer** — `0.4*recency_norm + 0.6*source_trust` (weights sum to 1.0, asserted); missing timestamps default to 0.5
+- **Cache** — L1 memory + L2 file; URL canonicalization (strips `utm_*`/`fbclid`/`gclid`/...) so tracker variants share one entry
+- **Contract** — pydantic `SearchResult.content` validator truncates to 500 chars globally; full text stays in `raw`
+
+Key files: `deuseek/sources.yml`, `deuseek/adapters/`, `deuseek/cli.py`, `deuseek/commands/fetch.py`, `deuseek/commands/super.py`, `deuseek/dispatcher.py`, `deuseek/fetch_router/router.py`, `deuseek/engines/`, `deuseek/convert/converter.py`, `deuseek/perf/`, `deuseek/native/`, `.claude-plugin/skills/deuseek/SKILL.md`.
+
+## 🙏 Acknowledgments
+
+deuseek stands on the shoulders of giants:
+
+- **[Scrapling](https://github.com/D4Vinci/Scrapling)** by [**D4Vinci**](https://github.com/D4Vinci) — the stealth-fetch / adaptive-parsing / async-Spider framework that powers deuseek's entire fetch layer (Fetcher / StealthyFetcher / DynamicFetcher / adaptive selectors / Spider). The three-tier Cloudflare-bypass design simply wouldn't exist without it. 🙏
+- **[Daily-AC/deuseek](https://github.com/Daily-AC/deuseek)** (MIT) — the upstream project this free fork builds on.
+- Upstream tools & libraries: `yt-dlp`, `gh`, `rdt-cli`, `feedparser`, `httpx`, `pydantic`, `rich`, `click`, [Jina Reader](https://r.jina.ai/), `curl_cffi`, `patchright`, `Playwright`, `markdownify`, `html2text`, `lxml`.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+1. Run `deuseek doctor` and include its output when reporting source/backend issues — 90% of "a source doesn't work" is a missing upstream binary.
+2. Open an issue first for new sources or breaking changes.
+3. Keep adapters conforming to `AdapterBase` (`is_ready` + `search` returning `SearchResult`).
+
+See [issue templates](.github/ISSUE_TEMPLATE/) for bug reports, feature requests, and new-source requests.
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE). Based on [Daily-AC/deuseek](https://github.com/Daily-AC/deuseek) (MIT); upstream copyright notice preserved.
